@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+    branches: ["main", "master"]
+
+jobs:
+  verify:
+    name: Typecheck & Durable Runtime Tests (Python 3.11 + PostgreSQL 16)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: llmlab
+          POSTGRES_PASSWORD: llmlab_password
+          POSTGRES_DB: llmlab
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U llmlab -d llmlab"
+          --health-interval=2s
+          --health-timeout=2s
+          --health-retries=15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install package and dev dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Run strict static type checking (mypy --strict)
+        run: mypy llmlab tests
+
+      - name: Run integration & concurrency test suite (pytest)
+        env:
+          DATABASE_URL: "postgresql+asyncpg://llmlab:llmlab_password@localhost:5432/llmlab"
+        run: pytest -v
