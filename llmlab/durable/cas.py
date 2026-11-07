@@ -94,6 +94,32 @@ class Transition:
         }
 
 
+FORK_BRANCH_SQL = text(
+    """
+    INSERT INTO checkpoints (
+        checkpoint_id, workflow_id, branch_id, parent_checkpoint_id,
+        step, version, node_id, graph_digest, state_payload, state_hash, fencing_token
+    )
+    SELECT
+        gen_random_uuid(),
+        c.workflow_id,
+        :new_branch_id,
+        c.checkpoint_id,
+        c.step + 1,
+        1,
+        :forking_node_id,
+        c.graph_digest,
+        c.state_payload || CAST(:patch AS jsonb),
+        sha256(convert_to((c.state_payload || CAST(:patch AS jsonb))::text, 'UTF8')),
+        0
+    FROM checkpoints AS c
+    WHERE c.checkpoint_id = CAST(:ancestor_checkpoint_id AS uuid)
+      AND c.workflow_id   = CAST(:workflow_id AS uuid)
+    RETURNING checkpoint_id, version;
+    """
+)
+
+
 CAS_HEAD_SQL = text(
     """
     WITH advanced AS (
