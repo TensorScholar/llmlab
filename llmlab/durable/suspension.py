@@ -129,19 +129,23 @@ SUSPEND_HEAD_SQL = text(
 
 RESUME_CAS_SQL = text(
     """
+    WITH next_fence AS (
+        SELECT COALESCE(CAST(:new_fencing_token AS bigint), nextval('fencing_token_seq')) AS token
+    )
     UPDATE checkpoints AS c
        SET status              = 'RUNNING',
            suspended_at        = NULL,
            resume_token_digest = NULL,
            expires_at          = NULL,
-           fencing_token       = CAST(:new_fencing_token AS bigint)
+           fencing_token       = next_fence.token
+      FROM next_fence
      WHERE c.workflow_id         = CAST(:workflow_id AS uuid)
        AND c.branch_id           = :branch_id
        AND c.version             = CAST(:expected_version AS bigint)
        AND c.status              = 'SUSPENDED'
-       AND c.resume_token_digest = :candidate_digest
+       AND c.resume_token_digest = CAST(:candidate_digest AS bytea)
        AND c.expires_at          > now()
-       AND c.fencing_token       < CAST(:new_fencing_token AS bigint)
+       AND c.fencing_token       < next_fence.token
     RETURNING c.checkpoint_id, c.version, c.fencing_token, c.state_payload;
     """
 )
@@ -180,6 +184,8 @@ SWEEP_EXPIRED_SUSPENSIONS_SQL = text(
            fencing_token       = nextval('fencing_token_seq')
       FROM expired_candidates AS ec
      WHERE target.checkpoint_id = ec.checkpoint_id
+       AND target.status        = 'SUSPENDED'
+       AND target.expires_at   <= now()
     RETURNING target.checkpoint_id,
               target.workflow_id,
               target.branch_id,
@@ -227,7 +233,7 @@ async def verify_and_resume_workflow(
     branch_id: str,
     expected_version: int,
     raw_token: str,
-    new_fencing_token: int,
+    new_fencing_token: int | None = None,
 ) -> ResumedWorkflowState:
     """Verify the bearer token in constant time and atomically resume the SUSPENDED checkpoint."""
     candidate_digest = hashlib.sha256(raw_token.encode("ascii")).digest()

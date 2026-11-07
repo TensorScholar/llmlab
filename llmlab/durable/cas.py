@@ -289,11 +289,14 @@ async def commit_transition(conn: AsyncConnection, tr: Transition) -> uuid.UUID:
 
         parent_checkpoint_id = uuid.UUID(str(row["checkpoint_id"]))
         next_version = int(row["version"]) + 1
-        new_id = await insert_snapshot(
-            conn=conn,
-            tr=tr,
-            parent_id=parent_checkpoint_id,
-            new_version=next_version,
-        )
-        await insert_writes(conn=conn, tr=tr, checkpoint_id=new_id)
-        return new_id
+        try:
+            new_id = await insert_snapshot(
+                conn=conn,
+                tr=tr,
+                parent_id=parent_checkpoint_id,
+                new_version=next_version,
+            )
+            await insert_writes(conn=conn, tr=tr, checkpoint_id=new_id)
+            return new_id
+        except Exception as exc:
+            raise ConcurrencyConflict(f"Concurrent version commit conflict: {exc}") from exc
