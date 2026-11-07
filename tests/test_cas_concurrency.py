@@ -18,10 +18,12 @@ from llmlab.durable.cas import (
 )
 from tests.conftest import VALID_GRAPH_DIGEST, seed_genesis_checkpoint
 
+VALID_UUIDV7_LITERAL = "0192f3a4-7c1b-7ae2-9d34-000000000001"
+
 
 async def test_sequential_transition_commits_atomically(db_engine: AsyncEngine) -> None:
     """Verify a valid transition advances version to 2 and persists its channel writes."""
-    workflow_id = uuid.uuid4()
+    workflow_id = uuid.UUID(VALID_UUIDV7_LITERAL)
     async with db_engine.connect() as conn:
         root_id = await seed_genesis_checkpoint(conn, workflow_id, fencing_token=1)
 
@@ -211,3 +213,25 @@ async def test_commutative_transition_raises_retry_from_version_and_rebases(
         ckpt_v3 = await commit_transition(conn, tr_branch_2_rebased)
         assert ckpt_v3 is not None
         assert merged_docs == ["doc_0", "doc_1", "doc_2"]
+
+
+async def test_uuidv7_transition_commits_with_valid_hex_literal(
+    db_engine: AsyncEngine,
+) -> None:
+    """Verify a valid hexadecimal UUIDv7 literal commits without syntax errors or cast failures."""
+    workflow_id = uuid.UUID(VALID_UUIDV7_LITERAL)
+    async with db_engine.connect() as conn:
+        root_id = await seed_genesis_checkpoint(conn, workflow_id, fencing_token=1)
+        tr = Transition(
+            workflow_id=workflow_id,
+            branch_id="main",
+            expected_version=1,
+            step=1,
+            node_id="validate_uuidv7",
+            graph_digest=VALID_GRAPH_DIGEST,
+            fencing_token=1,
+            state_payload={"uuid_verified": True},
+        )
+        ckpt = await commit_transition(conn, tr)
+        assert isinstance(ckpt, uuid.UUID)
+        assert ckpt != root_id
