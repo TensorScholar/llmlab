@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from typing import AbstractSet, Mapping, Sequence, overload
 
 
-class GraphCompilationError(Exception):
+class GraphCompilationError(ValueError):
     """Base exception raised when a workflow graph fails static structural validation."""
 
 

@@ -1,4 +1,4 @@
-# `llmlab` (`v0.1.0`) — Reference Implementation
+# `llmlab` (`v0.1.1`) — Reference Implementation
 
 [![CI](https://github.com/TensorScholar/llmlab/actions/workflows/ci.yml/badge.svg)](https://github.com/TensorScholar/llmlab/actions/workflows/ci.yml)
 [![Status: Public, CI-Verified](https://img.shields.io/badge/Status-Public%2C%20CI--Verified-brightgreen.svg)](https://github.com/TensorScholar/llmlab)
@@ -11,7 +11,7 @@ Official companion reference repository for the upcoming book Inside Production 
 
 ## Architectural Overview
 
-`llmlab` (`v0.1.0`) is engineered with a **100% local-first, zero-cloud-dependency** runtime (Python 3.11+, PostgreSQL 16, SQLAlchemy 2.0 `asyncio`, `asyncpg`, and Pydantic v2). Every SQL statement, state-machine invariant, and concurrency primitive in this repository maps 1-to-1 to the formal definitions and code listings in **Chapter 10: Durable and Multi-Agent Execution**:
+`llmlab` (`v0.1.1`) is engineered with a **100% local-first, zero-cloud-dependency** runtime (Python 3.11+, PostgreSQL 16, SQLAlchemy 2.0 `asyncio`, `asyncpg`, and Pydantic v2). Every SQL statement, state-machine invariant, and concurrency primitive in this repository maps 1-to-1 to the formal definitions and code listings in **Chapter 10: Durable and Multi-Agent Execution**:
 
 * **`sql/01_schema.sql` (Section 10.3.2 — Physical Storage Schema & Structural Invariants):** Defines the append-only `checkpoints` lineage table, the `checkpoint_writes` delta and side-effect ledger, the monotonic `fencing_token_seq` sequence, partial unique indexes for idempotency keys, and `CHECK` constraints enforcing root/child lineage and suspension state consistency.
 * **`llmlab/durable/graph.py` (Section 10.1.3 — Static Cyclic Graph Verification):** Implements `GraphTopology`, `tarjan_scc` for $O(|V| + |E|)$ Strongly Connected Components (SCC) decomposition, entry reachability auditing from $v_{\text{start}}$, and condensation DAG sink validation (`validate_graph_termination`) to reject deadlocked cycles (`NonTerminatingCycleError`) and unreachable subgraphs (`OrphanComponentError`) at compile time.

@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncConnection
 from llmlab.durable.idempotency import _frame
 
 RESUMPTION_DOMAIN: Final[bytes] = b"llmlab/resumption-token/v1"
+RESUME_DOMAIN: Final[bytes] = RESUMPTION_DOMAIN
 
 
 class SuspensionError(Exception):
@@ -38,6 +39,9 @@ class IssuedResumptionToken:
     token_digest: bytes
     suspended_at: datetime
     expires_at: datetime
+
+
+ResumptionTicket = IssuedResumptionToken
 
 
 @dataclass(frozen=True, slots=True)
