@@ -1,10 +1,11 @@
 # `llmlab` (`v0.1.0`) — Reference Implementation
 
 [![CI](https://github.com/TensorScholar/llmlab/actions/workflows/ci.yml/badge.svg)](https://github.com/TensorScholar/llmlab/actions/workflows/ci.yml)
+[![Status: Public, CI-Verified](https://img.shields.io/badge/Status-Public%2C%20CI--Verified-brightgreen.svg)](https://github.com/TensorScholar/llmlab)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-Official companion reference repository for **Inside Production LLM Systems: Engineering Latency, Cost, Reliability, and Security** by **Muhammad Atashi**, featuring the complete runnable implementation for **Chapter 10: Durable and Multi-Agent Execution**.
+Official companion reference repository for the upcoming book Inside Production LLM Systems: Engineering Latency, Cost, Reliability, and Security for Production AI Infrastructure by Muhammad Atashi, featuring the complete runnable implementation for Chapter 10: Durable and Multi-Agent Execution.
 
 ---
 
