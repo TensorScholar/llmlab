@@ -159,3 +159,68 @@ def test_agent_envelope_validation_and_capability_authorization() -> None:
                 "injected_admin_flag": True,
             }
         )
+
+
+def test_tarjan_scc_topology_overload() -> None:
+    """Verify tarjan_scc accepts GraphTopology directly per Chapter 10 specification."""
+    from llmlab.durable.graph import tarjan_scc
+
+    topology = GraphTopology(
+        vertices=frozenset({"a", "b", "c"}),
+        fixed_edges={"a": frozenset({"b"}), "b": frozenset({"c"}), "c": frozenset({"a"})},
+        start_vertex="a",
+        terminal_vertices=frozenset({"done"}),
+    )
+    sccs = tarjan_scc(topology)
+    assert len(sccs) == 1
+    assert sccs[0] == frozenset({"a", "b", "c"})
+
+
+def test_tool_call_request_utf8_string_and_bytes_interoperability() -> None:
+    """Verify ToolCallRequest seamlessly supports both UTF-8 str and bytes."""
+    # Valid string payload
+    req_str = ToolCallRequest(tool="lookup", arguments_json='{"key":"val"}')
+    assert req_str.arguments_json == '{"key":"val"}'
+
+    # Valid bytes payload
+    req_bytes = ToolCallRequest(tool="lookup", arguments_json=b'{"key":"val"}')
+    assert req_bytes.arguments_json == b'{"key":"val"}'
+
+    # Byte-limit enforcement on multi-byte UTF-8
+    oversized = "{" + '"k":' + '"' + "x" * 9000 + '"}'
+    with pytest.raises(ValidationError):
+        ToolCallRequest(tool="lookup", arguments_json=oversized)
+
+
+def test_authorize_chapter_10_keyword_convention() -> None:
+    """Verify authorize supports Chapter 10 keyword calling convention and granted_capabilities."""
+    directory = AgentDirectory(
+        agents={
+            "agent_a": AgentRegistration(
+                agent_id="agent_a",
+                allowed_recipients=frozenset({"agent_b"}),
+                granted_capabilities=frozenset({"cap:search"}),
+            ),
+            "agent_b": AgentRegistration(
+                agent_id="agent_b",
+                allowed_recipients=frozenset(),
+                granted_capabilities=frozenset(),
+            ),
+        },
+        tool_required_capability={"search_web": "cap:search"},
+    )
+
+    env = AgentEnvelope(
+        envelope_id=uuid.uuid4(),
+        workflow_id=uuid.uuid4(),
+        branch_id="main",
+        sender="agent_a",
+        recipient="agent_b",
+        step=0,
+        version=1,
+        issued_at=datetime.now(timezone.utc),
+        payload=ToolCallRequest(tool="search_web", arguments_json='{"q":"test"}'),
+    )
+
+    # Invocation with keyword arguments as in Chapter 10
+    authorize(env, authenticated_sender="agent_a", directory=directory)

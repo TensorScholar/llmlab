@@ -84,6 +84,46 @@ async def test_suspend_and_single_use_resumption_token(db_engine: AsyncEngine) -
             )
 
 
+async def test_resume_workflow_draws_nextval_fencing_token(
+    db_engine: AsyncEngine,
+) -> None:
+    """Verify that when new_fencing_token is None, nextval('fencing_token_seq') is drawn."""
+    workflow_id = uuid.uuid4()
+    now = datetime.now(timezone.utc)
+    expires = now + timedelta(hours=2)
+
+    async with db_engine.connect() as conn:
+        await seed_genesis_checkpoint(conn, workflow_id, fencing_token=1)
+        token = issue_resumption_token(
+            secret=RESUMPTION_SECRET,
+            workflow_id=workflow_id,
+            branch_id="main",
+            step=0,
+            version=1,
+            audience="auto_resume",
+            suspended_at=now,
+            expires_at=expires,
+        )
+        await suspend_workflow(
+            conn=conn,
+            workflow_id=workflow_id,
+            branch_id="main",
+            expected_version=1,
+            fencing_token=1,
+            token=token,
+        )
+        resumed = await verify_and_resume_workflow(
+            conn=conn,
+            workflow_id=workflow_id,
+            branch_id="main",
+            expected_version=1,
+            raw_token=token.raw_token,
+            new_fencing_token=None,
+        )
+        assert resumed.version == 1
+        assert resumed.fencing_token > 1
+
+
 async def test_expired_suspension_rejected_and_reclaimed_by_sweeper(
     db_engine: AsyncEngine,
 ) -> None:

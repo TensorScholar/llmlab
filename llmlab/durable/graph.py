@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass, field
-from typing import Mapping, AbstractSet, Sequence
+from typing import AbstractSet, Mapping, Sequence, overload
 
 
 class GraphCompilationError(Exception):
@@ -24,19 +24,42 @@ class GraphTopology:
     """Static control-flow specification of a cyclic agent state machine."""
 
     vertices: frozenset[str]
-    fixed_edges: Mapping[str, frozenset[str]]
-    conditional_targets: Mapping[str, frozenset[str]]
-    start_vertex: str
+    fixed_edges: Mapping[str, frozenset[str]] = field(default_factory=dict)
+    conditional_targets: Mapping[str, frozenset[str]] = field(default_factory=dict)
+    start_vertex: str = ""
     terminal_vertices: frozenset[str] = field(default_factory=frozenset)
+    adjacency: Mapping[str, frozenset[str]] = field(default_factory=dict)
+
+    def __init__(
+        self,
+        vertices: AbstractSet[str],
+        fixed_edges: Mapping[str, AbstractSet[str]] | None = None,
+        conditional_targets: Mapping[str, AbstractSet[str]] | None = None,
+        start_vertex: str = "",
+        terminal_vertices: AbstractSet[str] | None = None,
+        adjacency: Mapping[str, AbstractSet[str]] | None = None,
+    ) -> None:
+        object.__setattr__(self, "vertices", frozenset(vertices))
+        f_edges = {k: frozenset(v) for k, v in (fixed_edges or {}).items()}
+        c_targets = {k: frozenset(v) for k, v in (conditional_targets or {}).items()}
+        object.__setattr__(self, "fixed_edges", f_edges)
+        object.__setattr__(self, "conditional_targets", c_targets)
+        object.__setattr__(self, "start_vertex", start_vertex)
+        object.__setattr__(self, "terminal_vertices", frozenset(terminal_vertices or ()))
+
+        if adjacency is not None:
+            adj = {k: frozenset(v) for k, v in adjacency.items()}
+        else:
+            adj = {}
+            for v in vertices:
+                fixed = f_edges.get(v, frozenset())
+                cond = c_targets.get(v, frozenset())
+                adj[v] = fixed | cond
+        object.__setattr__(self, "adjacency", adj)
 
     def adjacency_map(self) -> dict[str, frozenset[str]]:
         """Return the combined outgoing edge set (E_fixed ∪ E_cond) for every vertex in V."""
-        adj: dict[str, frozenset[str]] = {}
-        for v in self.vertices:
-            fixed = self.fixed_edges.get(v, frozenset())
-            cond = self.conditional_targets.get(v, frozenset())
-            adj[v] = fixed | cond
-        return adj
+        return dict(self.adjacency)
 
     def digest(self) -> str:
         """Compute a canonical 64-hex-char SHA-256 digest of the static topology."""
@@ -62,11 +85,32 @@ class CompilationReport:
     condensation_edges: Mapping[int, frozenset[int]]
 
 
+@overload
+def tarjan_scc(topology: GraphTopology, /) -> list[frozenset[str]]: ...
+
+
+@overload
 def tarjan_scc(
     vertices: AbstractSet[str],
     adjacency: Mapping[str, AbstractSet[str]],
+    /,
+) -> list[frozenset[str]]: ...
+
+
+def tarjan_scc(
+    vertices_or_topology: GraphTopology | AbstractSet[str],
+    adjacency: Mapping[str, AbstractSet[str]] | None = None,
 ) -> list[frozenset[str]]:
     """Partition a directed graph into Strongly Connected Components in O(|V| + |E|) time."""
+    if isinstance(vertices_or_topology, GraphTopology):
+        verts: AbstractSet[str] = vertices_or_topology.vertices
+        adj: Mapping[str, AbstractSet[str]] = vertices_or_topology.adjacency
+    else:
+        verts = vertices_or_topology
+        if adjacency is None:
+            raise ValueError("adjacency map is required when passing vertices to tarjan_scc")
+        adj = adjacency
+
     index_counter = 0
     indices: dict[str, int] = {}
     lowlink: dict[str, int] = {}
@@ -82,7 +126,11 @@ def tarjan_scc(
         stack.append(node)
         on_stack.add(node)
 
-        for neighbor in sorted(adjacency.get(node, frozenset())):
+        for neighbor in sorted(adj.get(node, frozenset())):
+            if neighbor not in verts:
+                raise GraphCompilationError(
+                    f"Edge from '{node}' targets unknown vertex '{neighbor}'."
+                )
             if neighbor not in indices:
                 strongconnect(neighbor)
                 lowlink[node] = min(lowlink[node], lowlink[neighbor])
@@ -99,7 +147,7 @@ def tarjan_scc(
                     break
             sccs.append(frozenset(component))
 
-    for vertex in sorted(vertices):
+    for vertex in sorted(verts):
         if vertex not in indices:
             strongconnect(vertex)
 
@@ -154,7 +202,7 @@ def validate_graph_termination(topology: GraphTopology) -> CompilationReport:
         )
 
     # 2. Tarjan SCC decomposition and condensation DAG construction
-    sccs: Sequence[frozenset[str]] = tarjan_scc(topology.vertices, adj)
+    sccs: Sequence[frozenset[str]] = tarjan_scc(topology)
     vertex_to_scc: dict[str, int] = {}
     for scc_idx, comp in enumerate(sccs):
         for v in comp:

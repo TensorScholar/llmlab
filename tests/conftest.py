@@ -64,4 +64,8 @@ async def seed_genesis_checkpoint(
         state_payload=initial_state if initial_state is not None else {"step_count": 0, "tokens": 0},
     )
     async with conn.begin_nested() if conn.in_transaction() else conn.begin():
+        await conn.execute(
+            text("SELECT setval('fencing_token_seq', GREATEST(CAST(:ft AS bigint), 1), true);"),
+            {"ft": fencing_token},
+        )
         return await insert_snapshot(conn=conn, tr=genesis, parent_id=None, new_version=1)
