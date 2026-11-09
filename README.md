@@ -28,10 +28,24 @@ Official companion reference repository for the upcoming book Inside Production 
 .
 ├── .github/workflows/ci.yml
 ├── .gitignore
+├── CHANGELOG.md
 ├── LICENSE
+├── Makefile
 ├── README.md
 ├── docker-compose.yml
 ├── pyproject.toml
+├── assets/
+│   └── figures/
+│       ├── fig-10-1-state-engine-color.png
+│       ├── fig-10-1-state-engine-print.png
+│       ├── fig-10-2-forking-color.png
+│       ├── fig-10-2-forking-print.png
+│       ├── fig-10-3-dual-write-color.png
+│       ├── fig-10-3-dual-write-print.png
+│       ├── fig-10-4-fencing-color.png
+│       └── fig-10-4-fencing-print.png
+├── docs/
+│   └── reviewer-quickstart.md
 ├── sql/
 │   └── 01_schema.sql
 ├── llmlab/
@@ -45,6 +59,7 @@ Official companion reference repository for the upcoming book Inside Production 
 │       ├── idempotency.py
 │       └── suspension.py
 └── tests/
+    ├── __init__.py
     ├── conftest.py
     ├── test_cas_concurrency.py
     ├── test_graph_termination.py
@@ -56,7 +71,7 @@ Official companion reference repository for the upcoming book Inside Production 
 
 ## Quickstart & Verification Commands
 
-Reproduce the complete static type check and PostgreSQL 16 concurrency/crash-recovery test suite locally in 4 steps:
+Reproduce the complete static type check and PostgreSQL 16 concurrency/crash-recovery test suite locally with a single unified command:
 
 ```bash
 # 1. Start the local PostgreSQL 16 container and initialize sql/01_schema.sql
@@ -65,9 +80,23 @@ docker compose up -d
 # 2. Install llmlab in editable mode with development dependencies
 pip install -e ".[dev]"
 
-# 3. Run strict static type analysis across package and test suite
+# 3. Execute the complete verification harness (mypy --strict + pytest)
+make verify-book
+```
+
+`make verify-book` is the primary entry point: it chains `mypy --strict llmlab tests` and `pytest -v tests/` into one reproducible run.
+
+For a full step-by-step reviewer manifest, see [`docs/reviewer-quickstart.md`](docs/reviewer-quickstart.md).
+
+<details>
+<summary>Run the underlying checks individually</summary>
+
+```bash
+# Strict static type analysis across package and test suite
 mypy llmlab tests
 
-# 4. Execute the unit and PostgreSQL concurrency/crash-recovery integration tests
+# Unit and PostgreSQL concurrency/crash-recovery integration tests
 pytest -v
 ```
+
+</details>

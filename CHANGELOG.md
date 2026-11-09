@@ -5,6 +5,14 @@ All notable changes to the `llmlab` reference repository are documented in this 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.2] - 2026-11-09
+
+### Added
+- Reviewer verification harness (`make verify-book`) chaining `mypy --strict` and `pytest`.
+- Official reviewer quickstart guide (`docs/reviewer-quickstart.md`).
+- Dual-mode architectural diagrams under `assets/figures/` (digital color and print-ready grayscale).
+- Grace-period and row-level locking controls for external side-effect reconciliation.
+
 ## [0.1.1] - 2026-11-07
 
 ### Fixed
